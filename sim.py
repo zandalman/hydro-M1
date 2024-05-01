@@ -243,7 +243,7 @@ class Grid(object):
         if self.do_hydro:
             cs      = np.sqrt(const.gam*self.w[P]/self.w[RHO])
             wavemax = np.max([np.abs(self.w[VX]), np.abs(self.w[VY]), cs])
-            if self.do_rad: wavemax = np.max([wavemax, np.full_like(cs, const.c)])
+            if self.do_rad: wavemax = np.max([wavemax, const.c])
         elif self.do_rad:
             wavemax = const.c
         self.dt = self.C*self.dx/wavemax # CFL condition
@@ -328,14 +328,15 @@ class Grid(object):
         if self.do_hydro: self.u    = np.pad(self.u[sl.ij],    [(0,0),(1,1),(1,1)], mode=pad_mode)
         if self.do_rad:   self.urad = np.pad(self.urad[sl.ij], [(0,0),(1,1),(1,1)], mode=pad_mode)
 
-    def step(self):
+    def step(self, nstep=1):
         ''' Full timestep. '''
-        self.bc()
-        if self.do_hydro: self.w = con_to_prim(self.u)
-        self.calc_dt()
-        if self.do_hydro: self.step_hydro()
-        if self.do_rad:   self.step_rad()
-        self.t += self.dt
+        for i in range(nstep):
+            self.bc()
+            if self.do_hydro: self.w = con_to_prim(self.u)
+            self.calc_dt()
+            if self.do_hydro: self.step_hydro()
+            if self.do_rad:   self.step_rad()
+            self.t += self.dt
 
     def inject(self, coord, rate, xflux=0, yflux=0):
         ''' Inject photons into the grid. '''
