@@ -211,8 +211,8 @@ class Grid(object):
         self.do_rad   = do_rad
 
         self.dx = 1/N
-        self.dt = 0
-        self.t  = 0
+        self.dt = 0.
+        self.t  = 0.
 
         x1d = np.linspace(-self.dx, 1, N+2)+self.dx/2
         y1d = np.linspace(-self.dx, 1, N+2)+self.dx/2
@@ -243,7 +243,7 @@ class Grid(object):
         if self.do_hydro:
             cs      = np.sqrt(const.gam*self.w[P]/self.w[RHO])
             wavemax = np.max([np.abs(self.w[VX]), np.abs(self.w[VY]), cs])
-            if self.do_rad: wavemax = np.max([wavemax, np.full_like(cs, const.c)])
+            if self.do_rad: wavemax = np.max([wavemax, const.c])
         elif self.do_rad:
             wavemax = const.c
         self.dt = self.C*self.dx/wavemax # CFL condition
@@ -324,18 +324,24 @@ class Grid(object):
     
     def bc(self):
         ''' Apply boundary conditions. '''
-        pad_mode = ['constant', 'edge', 'wrap'][self.bc_typ]
-        if self.do_hydro: self.u    = np.pad(self.u[sl.ij],    [(0,0),(1,1),(1,1)], mode=pad_mode)
-        if self.do_rad:   self.urad = np.pad(self.urad[sl.ij], [(0,0),(1,1),(1,1)], mode=pad_mode)
+        pad_mode = np.array(['constant', 'edge', 'wrap'])[self.bc_typ]
+        if self.do_hydro: 
+            self.u    = np.pad(self.u[sl.ij],    [(0,0),(1,1),(0,0)], mode=pad_mode[X])
+            self.u    = np.pad(self.u       ,    [(0,0),(0,0),(1,1)], mode=pad_mode[Y])
+        if self.do_rad:   
+            self.urad = np.pad(self.urad[sl.ij], [(0,0),(1,1),(0,0)], mode=pad_mode[X])
+            self.urad = np.pad(self.urad       , [(0,0),(0,0),(1,1)], mode=pad_mode[Y])
 
-    def step(self):
+    def step(self, nstep=1, do_print=False):
         ''' Full timestep. '''
-        self.bc()
-        if self.do_hydro: self.w = con_to_prim(self.u)
-        self.calc_dt()
-        if self.do_hydro: self.step_hydro()
-        if self.do_rad:   self.step_rad()
-        self.t += self.dt
+        for i in range(nstep):
+            self.bc()
+            if self.do_hydro: self.w = con_to_prim(self.u)
+            self.calc_dt()
+            if self.do_hydro: self.step_hydro()
+            if self.do_rad:   self.step_rad()
+            self.t += self.dt
+            if do_print: print('%d'%i, end=',')
 
     def inject(self, coord, rate, xflux=0, yflux=0):
         ''' Inject photons into the grid. '''
