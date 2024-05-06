@@ -11,11 +11,17 @@ For examples on how to run our code, see the `notebooks` directory. To download 
 Example of the hydro solver.
 
 <p align="center">
-<img src="media/kelvin.png" width="60%">
+<img src="media/movie_kelvin.gif" width="80%">
 </p>
 
 Example of the radiation solver.
 
 <p align="center">
-<img src="media/rad.png" width="60%">
+<img src="media/movie_rad.gif" width="60%">
+</p>
+
+Example of Radiation Hydrodynamics Solver (End Result), simulating the ionization sphere around an O type star embedded in a box of neutral hydrogen. Below we show the evolution of the ionization fraction
+
+<p align="center">
+<img src="media/ionization_movie.gif" width="60%">
 </p>
