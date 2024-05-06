@@ -40,7 +40,7 @@ def calc_flux(u, w, dir):
     flux[PAS]    = w[VI][None,:,:]*u[PAS]
     return flux
 
-def calc_flux_rad(u):
+def calc_flux_rad(u, c_red):
     ''' Compute flux of radiation variables. '''
     flux   = np.zeros_like([u, u])
     u_red  = np.zeros_like(u)
@@ -50,17 +50,17 @@ def calc_flux_rad(u):
     cond_isphot = u[NPHOT]>0
     cond_isflux = u_abs>0
     
-    u_red[NPHOT,cond_isphot]            = u_abs[cond_isphot]/(const.c*u[NPHOT,cond_isphot])
+    u_red[NPHOT,cond_isphot]            = u_abs[cond_isphot]/(c_red*u[NPHOT,cond_isphot])
     u_red[XFLUX:YFLUX+1][:,cond_isflux] = u[XFLUX:YFLUX+1][:,cond_isflux]/u_abs[cond_isflux]
     chi[cond_isphot]                    = ((3+4*u_red[NPHOT,cond_isphot]**2)/(5+2*np.sqrt(4-3*u_red[NPHOT,cond_isphot]**2)))
 
     flux[X,NPHOT] = u[XFLUX]
-    flux[X,XFLUX] = const.c**2*u[NPHOT]*((1-chi)/2+(3*chi-1)/2*u_red[XFLUX]**2)
-    flux[X,YFLUX] = const.c**2*u[NPHOT]*(3*chi-1)/2*u_red[XFLUX]*u_red[YFLUX]
+    flux[X,XFLUX] = c_red**2*u[NPHOT]*((1-chi)/2+(3*chi-1)/2*u_red[XFLUX]**2)
+    flux[X,YFLUX] = c_red**2*u[NPHOT]*(3*chi-1)/2*u_red[XFLUX]*u_red[YFLUX]
 
     flux[Y,NPHOT] = u[YFLUX]
-    flux[Y,XFLUX] = const.c**2*u[NPHOT]*(3*chi-1)/2*u_red[XFLUX]*u_red[YFLUX]
-    flux[Y,YFLUX] = const.c**2*u[NPHOT]*((1-chi)/2+(3*chi-1)/2*u_red[YFLUX]**2)
+    flux[Y,XFLUX] = c_red**2*u[NPHOT]*(3*chi-1)/2*u_red[XFLUX]*u_red[YFLUX]
+    flux[Y,YFLUX] = c_red**2*u[NPHOT]*((1-chi)/2+(3*chi-1)/2*u_red[YFLUX]**2)
 
     return flux
 
@@ -191,14 +191,17 @@ class Grid(object):
     2 YFLUX: y-flux of photons
 
     Args
-    bc_typ:  boundary condition type
-    bc_val:  boundary condition value
-    C:       Cournat number
-    sloper:  slope limiter
-    do_sed:  do smooth extrema detection
-    rsolve:  riemann solver
+    bc_typ:   boundary condition type
+    bc_val:   boundary condition value
+    C:        Cournat number
+    sloper:   slope limiter
+    do_sed:   do smooth extrema detection
+    rsolve:   riemann solver
+    do_hydro: do hydro solver
+    do_rad:   do radiation solver
+    c_red:    reduced speed of light
     '''
-    def __init__(self, N, bc_typ=NEU, bc_val=0, C=0.4, sloper=MINMOD, do_sed=True, rsolve=HLL, do_hydro=True, do_rad=True):
+    def __init__(self, N, bc_typ=NEU, bc_val=0, C=0.4, sloper=MINMOD, do_sed=True, rsolve=HLL, do_hydro=True, do_rad=True, c_red=1):
 
         self.N        = N
         self.bc_typ   = bc_typ
@@ -209,6 +212,7 @@ class Grid(object):
         self.rsolve   = [hllc, hll][rsolve]
         self.do_hydro = do_hydro
         self.do_rad   = do_rad
+        self.c_red    = c_red
 
         self.dx = 1/N
         self.dt = 0.
@@ -243,9 +247,9 @@ class Grid(object):
         if self.do_hydro:
             cs      = np.sqrt(const.gam*self.w[P]/self.w[RHO])
             wavemax = np.max([np.abs(self.w[VX]), np.abs(self.w[VY]), cs])
-            if self.do_rad: wavemax = np.max([wavemax, const.c])
+            if self.do_rad: wavemax = np.max([wavemax, self.c_red])
         elif self.do_rad:
-            wavemax = const.c
+            wavemax = self.c_red
         self.dt = self.C*self.dx/wavemax # CFL condition
     
     def calc_slope(self):
@@ -309,9 +313,9 @@ class Grid(object):
     
     def riemann_rad(self):
         ''' Solve the Riemann problem for radiation variables. '''
-        fluxrad            = calc_flux_rad(self.urad)
-        self.fluxfacerad_x = (fluxrad[X,:,1:,1:-1]+fluxrad[X,:,:-1,1:-1])/2 - const.c*(self.urad[:,1:,1:-1]-self.urad[:,:-1,1:-1])/2
-        self.fluxfacerad_y = (fluxrad[Y,:,1:-1,1:]+fluxrad[Y,:,1:-1,:-1])/2 - const.c*(self.urad[:,1:-1,1:]-self.urad[:,1:-1,:-1])/2
+        fluxrad            = calc_flux_rad(self.urad, self.c_red)
+        self.fluxfacerad_x = (fluxrad[X,:,1:,1:-1]+fluxrad[X,:,:-1,1:-1])/2 - self.c_red*(self.urad[:,1:,1:-1]-self.urad[:,:-1,1:-1])/2
+        self.fluxfacerad_y = (fluxrad[Y,:,1:-1,1:]+fluxrad[Y,:,1:-1,:-1])/2 - self.c_red*(self.urad[:,1:-1,1:]-self.urad[:,1:-1,:-1])/2
     
     def addflux_rad(self):
         ''' Evolve the radiation variables a full timestep using the fluxes. '''
