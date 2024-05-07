@@ -1,7 +1,3 @@
-<p align="center">
-<img src="media/thumbnail.png" width="80%">
-</p>
-
 # Radiation Hydrodynamics with Python
 
 Final Project for APC 523 at Princeton University.
